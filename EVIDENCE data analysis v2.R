@@ -207,9 +207,15 @@ t.test(df$fvCbl[df$loc=="LA"],df$fvCm6[df$loc=="LA"], paired =T)
 
 dfe = demoe %>%
   full_join(re, by="pid")
-reg=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+loc, data=dfe))
+reg=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+as.factor(education_level)+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt+loc, data=dfe))
 summary(reg)
 confint(reg)
+
+dfesub = dfe %>%
+  filter(loc!="SF")
+regsub=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+as.factor(education_level)+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt+loc, data=dfesub))
+summary(regsub)
+confint(regsub)
 
 
 
@@ -255,7 +261,7 @@ summary(dfe$redrate[df$loc!="LA"])
 
 dfe_sub  = dfe %>%
   filter(loc!="SF")
-reg1=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+loc*redrate, data=dfe_sub))
+reg1=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+as.factor(education_level)+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt+loc+redrate+loc*redrate, data=dfe_sub))
 summary(reg1)
 confint(reg1)
 
@@ -263,7 +269,8 @@ confint(reg1)
 
 # SSB consumption
 
-ssbs = r9e %>% 
+
+ssbs = rbind(r9e,r9c) %>% 
   select("time",contains("Sweetened")&(contains("Beverage")|contains("Drinks")|contains("Coffee")|contains("Tea")|contains("Water"))&(!contains("Artificially"))&(!contains("Unsweetened"))) %>%
   ungroup %>%
   mutate(ssb = rowSums(select(., -"pid", -"time")))
@@ -278,11 +285,22 @@ ssbm6 = ssbs %>%
 ssbe = full_join(ssbbl,ssbm6) %>%
   mutate(ssbdiff = ssbm6-ssbbl)
 
+df = full_join(df,ssbe)
 dfe = full_join(dfe,ssbe)
-reg2=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+loc+ssbbl+ssbdiff, data=dfe))
+reg2=(lm(fvCdiff~age_in_years+sex+race___3+ethnicity+as.factor(education_level)+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt+loc+ssbbl+ssbdiff+loc*ssbbl+loc*ssbdiff, data=dfe))
 summary(reg2)
 confint(reg2)
 
+summary(df$ssbbl)
+summary(df$ssbm6)
+summary(df$ssbdiff)
+t.test(df$ssbm6,df$ssbbl, paired =T)
+
+
+summary(df$ssbbl[df$loc=="SF"])
+summary(df$ssbm6[df$loc=="SF"])
+summary(df$ssbdiff[df$loc=="SF"])
+t.test(df$ssbm6[df$loc=="SF"],df$ssbbl[df$loc=="SF"], paired =T)
 
 summary(dfe$ssbbl[dfe$loc=="SFev"])
 summary(dfe$ssbm6[dfe$loc=="SFev"])
@@ -297,9 +315,9 @@ t.test(dfe$ssbm6[dfe$loc=="LA"],dfe$ssbbl[dfe$loc=="LA"], paired =T)
 t.test(dfe$ssbbl[dfe$loc=="SFev"],dfe$ssbbl[dfe$loc=="LA"])
 t.test(dfe$ssbm6[dfe$loc=="SFev"],dfe$ssbm6[dfe$loc=="LA"])
 
-reg3=(lm(ssbdiff~age_in_years+sex+race___3+ethnicity+loc, data=dfe))
-summary(reg3)
-confint(reg3)
+
+
+
 
 
 # HEI
@@ -496,6 +514,10 @@ reg4=(lm(heidiff~age_in_years+sex+race___3+ethnicity+loc, data=dfe))
 summary(reg4)
 confint(reg4)
 
+reg4sub=(lm(heidiff~age_in_years+sex+race___3+ethnicity++loc, data=dfe))
+summary(reg4sub)
+confint(reg4sub)
+
 summary(dfe$heibl)
 summary(dfe$heibl[dfe$loc=="SF"])
 summary(dfe$heibl[dfe$loc=="SFev"])
@@ -516,6 +538,11 @@ t.test(dfe$heibl[dfe$loc=="LA"],dfe$heim6[dfe$loc=="LA"],paired=T,na.action=na.o
 t.test(dfe$heibl[dfe$loc!="LA"],dfe$heim6[dfe$loc!="LA"],paired=T,na.action=na.omit)
 
 t.test(dfe$heim6,dfe$heibl,paired=T,na.action=na.omit)
+
+
+reg2b=(lm(heidiff~age_in_years+sex+race___3+ethnicity+as.factor(education_level)+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt+loc+ssbbl+ssbdiff+loc*ssbbl+loc*ssbdiff, data=dfe))
+summary(reg2b)
+confint(reg2b)
 
 #### EVIDENCE only ####
 
@@ -539,6 +566,15 @@ dfe = full_join(dfe,heie, by = c("pid"="pid"))
 reg4=(lm(heidiff~age_in_years+sex+race___3+ethnicity+loc, data=dfe))
 summary(reg4)
 confint(reg4)
+
+
+dfesub = dfe %>%
+  filter(loc!="SF")
+reg4sub=(lm(heidiff~age_in_years+sex+race___3+ethnicity+as.factor(education_level)+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt+loc, data=dfesub))
+summary(reg4sub)
+confint(reg4sub)
+
+
 
 summary(dfe$heibl)
 summary(dfe$heibl[dfe$loc=="SFev"])
