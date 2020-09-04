@@ -1,4 +1,4 @@
-# EVIDENCE data analysis v2
+# Voucher transportability data analysis
 # sanjay_basu@hms.harvard.edu
 
 
@@ -596,20 +596,23 @@ t.test(dfe$heim6,dfe$heibl,paired=T,na.action=na.omit)
 ### Methods for Entropy Balancing
 
 ## The following list contains the objects that you will need to create if they don't already exist.
-# X0 <- SFev design matrix with intercept. You can use model.matrix() to construct this object.
-# X1 <- LA design matrix with intercept. You can use model.matrix() to construct this object.
+# X0 <- LA design matrix with intercept. You can use model.matrix() to construct this object.
+# X1 <- SFev design matrix with intercept. You can use model.matrix() to construct this object.
 # The columns in X0 and X1 must align
-# Y1 <- LA F&V diff outcome.
-# Z1 <- LA treatment indicator (numeric; 0,1)
+# Y1 <- SFev F&V diff outcome.
+# Z1 <- SFev treatment indicator (numeric; 0,1)
 
 library(matrixStats)
+dfe = full_join(df,heie, by = c("pid"="pid"))
 
 ebl = dfe %>%
+  filter(loc!="SF") %>%
   select(pid,age_in_years,sex,education_level, race___3, ethnicity, hh_monthly_income,
          ppl_in_hh, fa_snap_ppt, fa_wic_ppt, fvCbl, heibl, loc) %>%
   mutate(fv = fvCbl, hei = heibl, z = 0) %>%
   select(-fvCbl, -heibl)
 em6 = dfe %>%
+  filter(loc!="SF") %>%
   select(pid,age_in_years,sex,education_level, race___3, ethnicity, hh_monthly_income,
          ppl_in_hh, fa_snap_ppt, fa_wic_ppt, fvCm6, heim6, loc) %>%
   mutate(fv = fvCm6, hei = heim6, z = 1) %>%
@@ -619,10 +622,9 @@ e = rbind(ebl,em6)
 e=e[complete.cases(e),]
 SFev <-  e[e$loc=="SFev",]
 LA <-  e[e$loc=="LA",]
-X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt, SFev)
-X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt, LA)
-Y1 <- LA$fv
-Z1 <- LA$z
+X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt, LA)
+X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt+fa_wic_ppt, SFev)
+Z1 <- SFev$z
 
 ### Start Kevin's code
 
@@ -832,10 +834,12 @@ estimate_sate <- function(obj, Y, ...) {
 
 
 # Entropy balancing
-tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
+tm <- colWeightedMeans(X0, w = rep(1/294,294)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
 # With target sample moments
+
+Y1 <- SFev$fv
 
 entest_sate <- try( estimate_sate(obj = entfit, Y = Y1), silent = TRUE )
 
@@ -843,7 +847,7 @@ entest_sate$estimate
 entest_sate$variance
 
 
-Y2 <- LA$hei
+Y2 <- SFev$hei
 
 entest_sate2 <- try( estimate_sate(obj = entfit, Y = Y2), silent = TRUE )
 
@@ -866,16 +870,16 @@ w_sd <- function(x, w, na.rm = FALSE) {
   
 }
 
-LA_mean <- colMeans(X1)
-LA_sd <- apply(X1, 2, sd)
+SFev_mean <- colMeans(X1)
+SFev_sd <- apply(X1, 2, sd)
 
 wts <- entfit$weights
 weighted_mean <- (t(X1) %*% wts) / sum(wts)
 weighted_sd <- apply(X1, 2, w_sd, w = wts)
 
 base <- rep(1, nrow(X0)) ## there might have been an error here before. Hopefully this fixes it
-SFev_mean <- (t(X0) %*% base) / sum(base)
-SFev_sd <- apply(X0, 2, w_sd, w = base)
+LA_mean <- (t(X0) %*% base) / sum(base)
+LA_sd <- apply(X0, 2, w_sd, w = base)
 
 table_one <- cbind(SFev_mean, SFev_sd, LA_mean, LA_sd, weighted_mean, weighted_sd)
 table_one
@@ -885,8 +889,8 @@ table_one
 # which subset of features explains the F&V diff
 
 # remove WIC
-X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt, SFev)
-X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt, LA)
+X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt, LA)
+X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh+fa_snap_ppt, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -904,8 +908,8 @@ entest_sate2$variance
 
 
 # and remove SNAP
-X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh, SFev)
-X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh, LA)
+X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh, LA)
+X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income+ppl_in_hh, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -924,8 +928,8 @@ entest_sate2$variance
 
 
 # and remove hh size
-X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income, SFev)
-X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income, LA)
+X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income, LA)
+X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+education_level+hh_monthly_income, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -946,8 +950,8 @@ entest_sate2$variance
 
 # and remove ed
 
-X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+hh_monthly_income, SFev)
-X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+hh_monthly_income, LA)
+X0 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+hh_monthly_income, LA)
+X1 <- model.matrix(~ age_in_years+sex+race___3+ethnicity+hh_monthly_income, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -967,8 +971,8 @@ entest_sate2$variance
 
 # and remove eth
 
-X0 <- model.matrix(~ age_in_years+sex+race___3+hh_monthly_income, SFev)
-X1 <- model.matrix(~ age_in_years+sex+race___3+hh_monthly_income, LA)
+X0 <- model.matrix(~ age_in_years+sex+race___3+hh_monthly_income, LA)
+X1 <- model.matrix(~ age_in_years+sex+race___3+hh_monthly_income, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -990,8 +994,8 @@ entest_sate2$variance
 
 # and remove race
 
-X0 <- model.matrix(~ age_in_years+sex+hh_monthly_income, SFev)
-X1 <- model.matrix(~ age_in_years+sex+hh_monthly_income, LA)
+X0 <- model.matrix(~ age_in_years+sex+hh_monthly_income, LA)
+X1 <- model.matrix(~ age_in_years+sex+hh_monthly_income, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -1012,8 +1016,8 @@ entest_sate2$variance
 
 # and remove sex
 
-X0 <- model.matrix(~ age_in_years+hh_monthly_income, SFev)
-X1 <- model.matrix(~ age_in_years+hh_monthly_income, LA)
+X0 <- model.matrix(~ age_in_years+hh_monthly_income, LA)
+X1 <- model.matrix(~ age_in_years+hh_monthly_income, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
@@ -1034,8 +1038,8 @@ entest_sate2$variance
 
 # and remove age
 
-X0 <- model.matrix(~ hh_monthly_income, SFev)
-X1 <- model.matrix(~ hh_monthly_income, LA)
+X0 <- model.matrix(~ hh_monthly_income, LA)
+X1 <- model.matrix(~ hh_monthly_income, SFev)
 tm <- colWeightedMeans(X0, w = rep(1/290,290)) # target margins# target margins
 entfit <- calibrate(X = X1, Z = Z1, target = tm, mom = FALSE)
 
